@@ -1,19 +1,27 @@
 import asyncpg
 import redis as redis_client
+import os
+from fastapi import Request
+from dotenv import load_dotenv
+load_dotenv()
 
 DB_CONFIG = {
-    "host":     "localhost",
-    "port":     5432,
-    "database": "wms_dev",
-    "user":     "postgres",
-    "password": "postgres"  # pgAdmin 접속할 때 쓰는 비밀번호
+    "host":     os.getenv("DB_HOST", "localhost"),
+    "port":     int(os.getenv("DB_PORT", 5432)),
+    "database": os.getenv("DB_NAME", "wms_dev"),
+    "user":     os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", ""),
 }
 
 async def create_db_pool():
     return await asyncpg.create_pool(**DB_CONFIG)
 
 def create_redis_client():
-    return redis_client.Redis(host='localhost', port=6379, decode_responses=True)
+    return redis_client.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        decode_responses=True
+    )
 
 async def startup_event(app):
     app.state.db = await create_db_pool()
@@ -23,3 +31,10 @@ async def startup_event(app):
 
 async def shutdown_event(app):
     await app.state.db.close()
+
+
+def get_db(request: Request):
+    return request.app.state.db
+
+def get_redis(request: Request):
+    return request.app.state.redis

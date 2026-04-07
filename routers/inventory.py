@@ -1,14 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from services.inventory import process_outbound
 from models.schemas import OutboundRequest
+from db.connection import get_db, get_redis  # 여기서 import
 
 router = APIRouter()
-
-async def get_db(request):
-    return request.app.state.db
-
-async def get_redis(request):
-    return request.app.state.redis
 
 @router.get("/inventory/{sku}")
 async def get_inventory(sku: str, db=Depends(get_db)):

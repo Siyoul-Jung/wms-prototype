@@ -55,15 +55,15 @@ async def process_outbound(req: OutboundRequest, db_pool, redis_client):
                 f"{req.channel} 주문 #{req.order_id}",
                 idempotency_key)
             
-            # 5. 이벤트 큐에 던지기
-            event = {
-                "type": "inventory_updated",
-                "master_sku": product['sku'],
-                "channel": req.channel,
-                "quantity_delta": -req.quantity,
-                "remaining": updated['quantity_on_hand']
-            }
-            redis_client.rpush("inventory_events", json.dumps(event))
+    # 5. 이벤트 큐에 던지기
+    event = {
+        "type": "inventory_updated",
+        "master_sku": product['sku'],
+        "channel": req.channel,
+        "quantity_delta": -req.quantity,
+        "remaining": updated['quantity_on_hand']
+    }
+    redis_client.rpush("inventory_events", json.dumps(event))
 
     return {
         "status":    "ok",

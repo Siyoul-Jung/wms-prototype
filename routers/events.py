@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends
 import json
+from db.connection import get_redis
 
 router = APIRouter()
-
-async def get_redis(request):
-    return request.app.state.redis
 
 @router.get("/events")
 async def get_events(redis=Depends(get_redis)):
@@ -21,8 +19,12 @@ async def process_events(redis=Depends(get_redis)):
         if not event_data:
             break
         event = json.loads(event_data)
-        # 실제로는 여기서 Shopify/Amazon API 호출
-        # 지금은 처리됐다고 출력만 함
+
+        # TODO: 실제 운영 환경에서는 아래 작업 수행
+        # - Shopify API로 재고 업데이트 전송
+        # - Amazon API로 재고 업데이트 전송
+        # - 실패 시 dead letter queue로 이동하여 재시도
         print(f"처리중: {event}")
+
         processed.append(event)
     return {"processed": processed, "count": len(processed)}
