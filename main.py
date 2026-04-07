@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import asyncpg
+import redis as redis_client
 
 app = FastAPI()
 
@@ -14,7 +15,9 @@ DB_CONFIG = {
 @app.on_event("startup")
 async def startup():
     app.state.db = await asyncpg.create_pool(**DB_CONFIG)
+    app.state.redis = redis_client.Redis(host='localhost', port=6379, decode_responses=True)
     print("DB 연결 완료!")
+    print("Redis 연결 완료!")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -101,9 +104,42 @@ async def outbound(req: OutboundRequest):
                 -req.quantity,
                 f"{req.channel} 주문 #{req.order_id}",
                 idempotency_key)
+            
+            # 5. 이벤트 큐에 던지기
+            event = {
+                "type": "inventory_updated",
+                "master_sku": product['sku'],
+                "channel": req.channel,
+                "quantity_delta": -req.quantity,
+                "remaining": updated['quantity_on_hand']
+            }
+            app.state.redis.rpush("inventory_events", json.dumps(event))
 
     return {
         "status":    "ok",
         "master_sku": product['sku'],
         "remaining":  updated['quantity_on_hand']
     }    
+
+import json
+
+@app.get("/events")
+async def get_events():
+    """큐에 쌓인 이벤트 확인용"""
+    events = app.state.redis.lrange("inventory_events", 0, -1)
+    return {"events": [json.loads(e) for e in events]}
+
+@app.post("/events/process")
+async def process_events():
+    """큐에 쌓인 이벤트 처리"""
+    processed = []
+    while True:
+        event_data = app.state.redis.lpop("inventory_events")
+        if not event_data:
+            break
+        event = json.loads(event_data)
+        # 실제로는 여기서 Shopify/Amazon API 호출
+        # 지금은 처리됐다고 출력만 함
+        print(f"처리중: {event}")
+        processed.append(event)
+    return {"processed": processed, "count": len(processed)}
