@@ -3,7 +3,7 @@ from models.schemas import OutboundRequest
 
 async def process_outbound(req: OutboundRequest, db_pool, redis_client):
     async with db_pool.acquire() as conn:
-        async with conn.transaction():  # 트랜잭션 시작
+        async with conn.transaction():  # 트랜잭션 시작 -> 동시성 처리
 
             # 1. 채널 SKU → 마스터 SKU 변환
             product = await conn.fetchrow("""
@@ -32,17 +32,25 @@ async def process_outbound(req: OutboundRequest, db_pool, redis_client):
             channel = await conn.fetchrow(
                 "SELECT id FROM channels WHERE name = $1", 'warehouse'
             )
+            # FOR UPDATE로 행 잠금
+            locked = await conn.fetchrow("""
+                SELECT quantity_on_hand
+                FROM inventory_levels
+                WHERE product_id = $1 AND channel_id = $2
+                FOR UPDATE
+                """, product['id'], channel['id'])
+
+            if not locked or locked['quantity_on_hand'] < req.quantity:
+                return {"error": "재고 부족"}   
+
+            # 잠금 후 안전하게 차감
             updated = await conn.fetchrow("""
                 UPDATE inventory_levels
                 SET quantity_on_hand = quantity_on_hand - $1,
                     updated_at = NOW()
                 WHERE product_id = $2 AND channel_id = $3
-                  AND quantity_on_hand >= $1
                 RETURNING quantity_on_hand
             """, req.quantity, product['id'], channel['id'])
-
-            if not updated:
-                return {"error": "재고 부족"}
 
             # 4. 이력 기록 (영수증)
             await conn.execute("""
