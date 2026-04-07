@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from db.connection import startup_event, shutdown_event
-from routers import inventory, webhook, events
+from routers import inventory, webhook, events, reconciliation
 
 app = FastAPI()
 
@@ -20,3 +20,4 @@ async def health_check():
 app.include_router(inventory.router)
 app.include_router(webhook.router)
 app.include_router(events.router)
+app.include_router(reconciliation.router)
