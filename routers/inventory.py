@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
-from services.inventory import process_outbound
-from models.schemas import OutboundRequest
-from db.connection import get_db, get_redis  # 여기서 import
+from services.inventory import process_outbound, process_inbound            
+from models.schemas import OutboundRequest, InboundRequest
+from db.connection import get_db, get_redis 
 
 router = APIRouter()
 
@@ -23,3 +23,7 @@ async def get_inventory(sku: str, db=Depends(get_db)):
 @router.post("/inventory/outbound")
 async def outbound(req: OutboundRequest, db=Depends(get_db), redis=Depends(get_redis)):
     return await process_outbound(req, db, redis)
+
+@router.post("/inventory/inbound")
+async def inbound(req: InboundRequest, db=Depends(get_db), redis=Depends(get_redis)):
+    return await process_inbound(req, db, redis)    

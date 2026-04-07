@@ -14,3 +14,9 @@ class LineItem(BaseModel):
 class ShopifyWebhookRequest(BaseModel):
     order_id:   str
     line_items: List[LineItem]  
+
+class InboundRequest(BaseModel):
+    channel_sku: str
+    channel:     str
+    quantity:    int
+    order_id:    str
